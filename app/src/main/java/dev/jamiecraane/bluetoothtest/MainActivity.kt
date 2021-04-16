@@ -20,6 +20,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import dev.jamiecraane.bluetoothtest.databinding.ActivityMainBinding
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -31,6 +32,8 @@ class MainActivity : AppCompatActivity() {
     private val foundDeviceAdapter = FoundDeviceAdapter()
     private val discoverDeviceReceiver = DiscoverDeviceReceiver(foundDeviceAdapter)
     private var blueToothSocket: BluetoothSocket? = null
+    private var blueToothCommunication: BlueToothCommunication? = null
+    private var binding: ActivityMainBinding? = null
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         Toast.makeText(this, "Location Permission Granted", Toast.LENGTH_SHORT).show()
@@ -55,12 +58,21 @@ class MainActivity : AppCompatActivity() {
             addAction(BluetoothAdapter.ACTION_DISCOVERY_FINISHED)
         })
 
-        val binding = ActivityMainBinding.inflate(layoutInflater)
-        setContentView(binding.root)
-        scanModeReceiver.statusView = binding.discoverStatus
+        val b = ActivityMainBinding.inflate(layoutInflater)
+        binding = b
 
-        binding.foundDevices.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
-        binding.foundDevices.adapter = foundDeviceAdapter
+        setContentView(b.root)
+        scanModeReceiver.statusView = b.discoverStatus
+
+        b.foundDevices.layoutManager = LinearLayoutManager(this, RecyclerView.VERTICAL, false)
+        b.foundDevices.adapter = foundDeviceAdapter
+
+        b.sendMessage.setOnClickListener {
+            val msg = b.messageToSend.text.toString()
+            if (msg.isNotBlank()) {
+                blueToothCommunication?.write(msg)
+            }
+        }
 
         bluetoothAdapter = BluetoothAdapter.getDefaultAdapter()
         if (bluetoothAdapter == null) {
@@ -68,23 +80,23 @@ class MainActivity : AppCompatActivity() {
         } else {
             Toast.makeText(this, "Bluetooth is enabled ${bluetoothAdapter?.isEnabled}", Toast.LENGTH_SHORT).show()
 
-            binding.enableDiscovery.setOnClickListener {
+            b.enableDiscovery.setOnClickListener {
                 val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
                     putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 20)
                 }
                 startActivity(discoverableIntent)
             }
 
-            binding.scanForBondedDevices.setOnClickListener {
+            b.scanForBondedDevices.setOnClickListener {
                 val pairedDevices = bluetoothAdapter?.bondedDevices
                 if (pairedDevices?.isNotEmpty() == true) {
                     foundDeviceAdapter.submitList(pairedDevices.toList())
                 } else {
-                    binding.bondedDevices.text = "No bonded devices found"
+                    b.bondedDevices.text = "No bonded devices found"
                 }
             }
 
-            binding.discoverDevices.setOnClickListener {
+            b.discoverDevices.setOnClickListener {
                 println("action: start discovery")
                 if (ContextCompat.checkSelfPermission(
                         this,
@@ -124,6 +136,7 @@ class MainActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 try {
                     socket.connect()
+                    startListeningForIncomingMessages(socket)
                     blueToothSocket = socket
                 } catch (e: IOException) {
                     println("Unable to connect")
@@ -146,13 +159,23 @@ class MainActivity : AppCompatActivity() {
                         null
                     }
                     println("Got socket: $socket")
-                    socket?.also {
+                    socket?.also { socket ->
+                        startListeningForIncomingMessages(socket)
                         this@MainActivity.blueToothSocket = socket
                         serverSocket?.close()
                         shouldLoop = false
                     }
 
                 }
+            }
+        }
+    }
+
+    private fun startListeningForIncomingMessages(socket: BluetoothSocket) {
+        blueToothCommunication = BlueToothCommunication(socket)
+        lifecycleScope.launchWhenResumed {
+            blueToothCommunication?.start()?.collect {
+                binding?.receivedMessage?.text = it
             }
         }
     }
