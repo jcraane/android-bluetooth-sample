@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:orientation="vertical"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    tools:context=".MainActivity">
+
+    <Button
+        android:id="@+id/enableDiscovery"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Enable discovery"/>
+
+    <TextView
+        android:id="@+id/discoverStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="idle"/>
+
+    <Button
+        android:id="@+id/discoverDevices"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Discover devices"/>
+
+    <Button
+        android:id="@+id/scanForBondedDevices"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Scan for bonded devices"/>
+
+    <TextView
+        android:id="@+id/bondedDevices"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="bonded devices"/>
+
+    <TextView
+        android:id="@+id/connectionStatus"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="disconnected"/>
+
+    <EditText
+        android:id="@+id/messageToSend"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"/>
+
+    <Button
+        android:id="@+id/sendMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Send"/>
+
+    <TextView
+        android:id="@+id/receivedMessage"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Nothing yet"/>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/foundDevices"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"/>
+</LinearLayout>
