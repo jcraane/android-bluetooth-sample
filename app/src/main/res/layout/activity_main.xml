@@ -60,6 +60,11 @@
         android:layout_height="wrap_content"
         android:text="Nothing yet"/>
 
+    <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Devices (discovered or bonded)"/>
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/foundDevices"
         android:layout_width="match_parent"

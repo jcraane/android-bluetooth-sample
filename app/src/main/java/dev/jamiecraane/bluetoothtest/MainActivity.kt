@@ -30,8 +30,7 @@ class MainActivity : AppCompatActivity() {
     private var bluetoothAdapter: BluetoothAdapter? = null
     private val foundDeviceAdapter = FoundDeviceAdapter()
     private val discoverDeviceReceiver = DiscoverDeviceReceiver(foundDeviceAdapter)
-    private var serverSocket: BluetoothSocket? = null
-    private var clientSocket: BluetoothSocket? = null
+    private var blueToothSocket: BluetoothSocket? = null
 
     private val requestPermissionLauncher = registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
         Toast.makeText(this, "Location Permission Granted", Toast.LENGTH_SHORT).show()
@@ -44,18 +43,7 @@ class MainActivity : AppCompatActivity() {
 
         foundDeviceAdapter.onDeviceClickListener = { bluetoothDevice ->
             Toast.makeText(this, "Tapped device", Toast.LENGTH_SHORT).show()
-            val socket = bluetoothDevice.createRfcommSocketToServiceRecord(MY_UUID)
-            bluetoothAdapter?.cancelDiscovery()
-            lifecycleScope.launchWhenStarted {
-                withContext(Dispatchers.IO) {
-                    try {
-                        socket.connect()
-                        clientSocket = socket
-                    } catch (e: IOException) {
-                        println("Unable to connecto")
-                    }
-                }
-            }
+            connect(bluetoothDevice)
         }
         registerReceiver(scanModeReceiver, IntentFilter().apply {
             addAction(BluetoothAdapter.ACTION_SCAN_MODE_CHANGED)
@@ -81,29 +69,6 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Bluetooth is enabled ${bluetoothAdapter?.isEnabled}", Toast.LENGTH_SHORT).show()
 
             binding.enableDiscovery.setOnClickListener {
-                val serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord("Hably", MY_UUID)
-                lifecycleScope.launchWhenStarted {
-                    withContext(Dispatchers.IO) {
-                        var shouldLoop = true
-                        while (shouldLoop && isActive) {
-                            val socket: BluetoothSocket? = try {
-                                serverSocket?.accept()
-                            } catch (e: IOException) {
-                                println("ServerSocket accept failed")
-                                shouldLoop = false
-                                null
-                            }
-                            println("Got socket: $socket")
-                            socket?.also {
-                                this@MainActivity.serverSocket = socket
-                                serverSocket?.close()
-                                shouldLoop = false
-                            }
-
-                        }
-                    }
-                }
-
                 val discoverableIntent: Intent = Intent(BluetoothAdapter.ACTION_REQUEST_DISCOVERABLE).apply {
                     putExtra(BluetoothAdapter.EXTRA_DISCOVERABLE_DURATION, 20)
                 }
@@ -113,8 +78,7 @@ class MainActivity : AppCompatActivity() {
             binding.scanForBondedDevices.setOnClickListener {
                 val pairedDevices = bluetoothAdapter?.bondedDevices
                 if (pairedDevices?.isNotEmpty() == true) {
-                    val names = pairedDevices.map { it.name }.joinToString(", ")
-                    binding.bondedDevices.text = names
+                    foundDeviceAdapter.submitList(pairedDevices.toList())
                 } else {
                     binding.bondedDevices.text = "No bonded devices found"
                 }
@@ -136,11 +100,61 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        createServerSocketAndListenForConnections()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        blueToothSocket?.close()
+    }
+
     override fun onDestroy() {
         super.onDestroy()
 
         unregisterReceiver(scanModeReceiver)
         unregisterReceiver(discoverDeviceReceiver)
+    }
+
+    private fun connect(bluetoothDevice: BluetoothDevice) {
+        val socket = bluetoothDevice.createRfcommSocketToServiceRecord(MY_UUID)
+        bluetoothAdapter?.cancelDiscovery()
+        lifecycleScope.launchWhenStarted {
+            withContext(Dispatchers.IO) {
+                try {
+                    socket.connect()
+                    blueToothSocket = socket
+                } catch (e: IOException) {
+                    println("Unable to connect")
+                }
+            }
+        }
+    }
+
+    private fun createServerSocketAndListenForConnections() {
+        val serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord("Hably", MY_UUID)
+        lifecycleScope.launchWhenStarted {
+            withContext(Dispatchers.IO) {
+                var shouldLoop = true
+                while (shouldLoop && isActive) {
+                    val socket: BluetoothSocket? = try {
+                        serverSocket?.accept()
+                    } catch (e: IOException) {
+                        println("ServerSocket accept failed")
+                        shouldLoop = false
+                        null
+                    }
+                    println("Got socket: $socket")
+                    socket?.also {
+                        this@MainActivity.blueToothSocket = socket
+                        serverSocket?.close()
+                        shouldLoop = false
+                    }
+
+                }
+            }
+        }
     }
 
     companion object {
