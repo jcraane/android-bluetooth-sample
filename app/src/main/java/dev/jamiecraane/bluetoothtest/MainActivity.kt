@@ -26,6 +26,9 @@ import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.util.*
 
+/**
+ * Not production ready code!!!
+ */
 class MainActivity : AppCompatActivity() {
     private val scanModeReceiver = ScanModeBroadcastReceiver()
     private var bluetoothAdapter: BluetoothAdapter? = null
