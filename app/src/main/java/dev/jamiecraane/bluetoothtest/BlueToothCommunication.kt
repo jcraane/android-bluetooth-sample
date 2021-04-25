@@ -1,12 +1,16 @@
 package dev.jamiecraane.bluetoothtest
 
+import android.bluetooth.BluetoothAdapter
 import android.bluetooth.BluetoothSocket
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.nio.charset.Charset
+import java.util.*
 
 /**
  * User: jamiecraane
@@ -39,5 +43,33 @@ class BlueToothCommunication(private val socket: BluetoothSocket) {
 
     fun stop() {
         socket.close()
+    }
+
+    companion object {
+        suspend fun openServerSocketAndListenerForIncomingConnections(bluetoothAdapter: BluetoothAdapter, uuid: UUID): BluetoothSocket? = withContext(
+            Dispatchers.IO
+        ) {
+            val serverSocket = bluetoothAdapter.listenUsingRfcommWithServiceRecord("Hably", uuid)
+            var shouldLoop = true
+            var socket: BluetoothSocket? = null
+            while (shouldLoop && isActive) {
+                socket = try {
+                    serverSocket?.accept()
+                } catch (e: IOException) {
+                    println("ServerSocket accept failed")
+                    shouldLoop = false
+                    null
+                }
+                println("Got socket: $socket")
+                socket?.also { socket ->
+                    /*startListeningForIncomingMessages(socket)
+                    this@MainActivity.blueToothSocket = socket*/
+                    serverSocket?.close()
+                    shouldLoop = false
+                }
+            }
+
+            socket
+        }
     }
 }

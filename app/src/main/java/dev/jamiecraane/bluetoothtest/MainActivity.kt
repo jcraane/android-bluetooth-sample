@@ -117,7 +117,15 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        createServerSocketAndListenForConnections()
+        bluetoothAdapter?.let { adapter ->
+            lifecycleScope.launchWhenResumed {
+                val socket = BlueToothCommunication.openServerSocketAndListenerForIncomingConnections(adapter, MY_UUID)
+                if (socket != null) {
+                    this@MainActivity.blueToothSocket = socket
+                    startListeningForIncomingMessages(socket)
+                }
+            }
+        }
     }
 
     override fun onPause() {
@@ -149,26 +157,27 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun createServerSocketAndListenForConnections() {
-        val serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord("Hably", MY_UUID)
-        lifecycleScope.launchWhenStarted {
-            withContext(Dispatchers.IO) {
-                var shouldLoop = true
-                while (shouldLoop && isActive) {
-                    val socket: BluetoothSocket? = try {
-                        serverSocket?.accept()
-                    } catch (e: IOException) {
-                        println("ServerSocket accept failed")
-                        shouldLoop = false
-                        null
+        if (bluetoothAdapter?.isEnabled == true) {
+            val serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord("Hably", MY_UUID)
+            lifecycleScope.launchWhenStarted {
+                withContext(Dispatchers.IO) {
+                    var shouldLoop = true
+                    while (shouldLoop && isActive) {
+                        val socket: BluetoothSocket? = try {
+                            serverSocket?.accept()
+                        } catch (e: IOException) {
+                            println("ServerSocket accept failed")
+                            shouldLoop = false
+                            null
+                        }
+                        println("Got socket: $socket")
+                        socket?.also { socket ->
+                            startListeningForIncomingMessages(socket)
+                            this@MainActivity.blueToothSocket = socket
+                            serverSocket?.close()
+                            shouldLoop = false
+                        }
                     }
-                    println("Got socket: $socket")
-                    socket?.also { socket ->
-                        startListeningForIncomingMessages(socket)
-                        this@MainActivity.blueToothSocket = socket
-                        serverSocket?.close()
-                        shouldLoop = false
-                    }
-
                 }
             }
         }
