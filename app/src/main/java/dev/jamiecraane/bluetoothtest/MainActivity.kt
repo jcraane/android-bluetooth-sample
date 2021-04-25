@@ -119,8 +119,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         bluetoothAdapter?.let { adapter ->
             lifecycleScope.launchWhenResumed {
-                val socket = BlueToothCommunication.openServerSocketAndListenerForIncomingConnections(adapter, MY_UUID)
-                if (socket != null) {
+                BlueToothCommunication.openServerSocketAndListenerForIncomingConnections(adapter, MY_UUID)?.let { socket ->
                     this@MainActivity.blueToothSocket = socket
                     startListeningForIncomingMessages(socket)
                 }
@@ -135,51 +134,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         super.onDestroy()
-
         unregisterReceiver(scanModeReceiver)
         unregisterReceiver(discoverDeviceReceiver)
     }
 
     private fun connect(bluetoothDevice: BluetoothDevice) {
-        val socket = bluetoothDevice.createRfcommSocketToServiceRecord(MY_UUID)
-        bluetoothAdapter?.cancelDiscovery()
-        lifecycleScope.launchWhenStarted {
-            withContext(Dispatchers.IO) {
-                try {
-                    socket.connect()
-                    startListeningForIncomingMessages(socket)
-                    blueToothSocket = socket
-                } catch (e: IOException) {
-                    println("Unable to connect")
+        bluetoothAdapter?.let {
+            lifecycleScope.launchWhenResumed {
+                BlueToothCommunication.connect(it, bluetoothDevice, MY_UUID)?.let {
+                startListeningForIncomingMessages(it)
+                    blueToothSocket = it
                 }
             }
-        }
-    }
 
-    private fun createServerSocketAndListenForConnections() {
-        if (bluetoothAdapter?.isEnabled == true) {
-            val serverSocket = bluetoothAdapter?.listenUsingRfcommWithServiceRecord("Hably", MY_UUID)
-            lifecycleScope.launchWhenStarted {
-                withContext(Dispatchers.IO) {
-                    var shouldLoop = true
-                    while (shouldLoop && isActive) {
-                        val socket: BluetoothSocket? = try {
-                            serverSocket?.accept()
-                        } catch (e: IOException) {
-                            println("ServerSocket accept failed")
-                            shouldLoop = false
-                            null
-                        }
-                        println("Got socket: $socket")
-                        socket?.also { socket ->
-                            startListeningForIncomingMessages(socket)
-                            this@MainActivity.blueToothSocket = socket
-                            serverSocket?.close()
-                            shouldLoop = false
-                        }
-                    }
-                }
-            }
         }
     }
 

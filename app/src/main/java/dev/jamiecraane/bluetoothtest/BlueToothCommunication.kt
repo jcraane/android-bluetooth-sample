@@ -1,6 +1,7 @@
 package dev.jamiecraane.bluetoothtest
 
 import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothDevice
 import android.bluetooth.BluetoothSocket
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -56,9 +57,8 @@ class BlueToothCommunication(private val socket: BluetoothSocket) {
                 socket = try {
                     serverSocket?.accept()
                 } catch (e: IOException) {
-                    println("ServerSocket accept failed")
                     shouldLoop = false
-                    null
+                    throw IllegalStateException("ServerSocket accept failed")
                 }
                 println("Got socket: $socket")
                 socket?.also { socket ->
@@ -67,6 +67,19 @@ class BlueToothCommunication(private val socket: BluetoothSocket) {
                     serverSocket?.close()
                     shouldLoop = false
                 }
+            }
+
+            socket
+        }
+
+        suspend fun connect(bluetoothAdapter: BluetoothAdapter, bluetoothDevice: BluetoothDevice, uuid: UUID): BluetoothSocket? = withContext(Dispatchers.IO) {
+            val socket = bluetoothDevice.createRfcommSocketToServiceRecord(uuid)
+            bluetoothAdapter.cancelDiscovery()
+            try {
+                @Suppress("BlockingMethodInNonBlockingContext")
+                socket.connect()
+            } catch (e: IOException) {
+                throw IllegalStateException("Unable to connect")
             }
 
             socket
